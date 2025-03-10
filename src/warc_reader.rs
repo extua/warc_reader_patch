@@ -54,8 +54,6 @@ impl WarcReader<BufReader<fs::File>> {
     pub fn from_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = fs::OpenOptions::new()
             .read(true)
-            .create(true)
-            .truncate(false)
             .open(&path)?;
         let reader = BufReader::with_capacity(MB, file);
 
