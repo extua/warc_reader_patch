@@ -2,7 +2,7 @@ use crate::parser;
 use crate::{BufferedBody, Error, RawRecordHeader, Record, StreamingBody};
 
 use std::convert::TryInto;
-use std::fs;
+use std::fs::{self, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -52,9 +52,7 @@ impl<R: BufRead> WarcReader<R> {
 impl WarcReader<BufReader<fs::File>> {
     /// Create a new reader which reads from file.
     pub fn from_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .open(&path)?;
+        let file: File = fs::File::open(&path)?;
         let reader = BufReader::with_capacity(MB, file);
 
         Ok(WarcReader::new(reader))
@@ -62,15 +60,17 @@ impl WarcReader<BufReader<fs::File>> {
 }
 
 #[cfg(feature = "gzip")]
-impl WarcReader<BufReader<fs::File>> {
+impl WarcReader<BufReader<GzipReader<BufReader<File>>>> {
     /// Create a new reader which reads from a compressed file.
     ///
     /// Only GZIP compression is currently supported.
     pub fn from_path_gzip<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let file = fs::File::open(&path)?;
+        let file: File = fs::File::open(&path)?;
 
-        let gzip_stream = GzipReader::new(BufReader::with_capacity(MB, file))?;
-        Ok(WarcReader::new(gzip_stream.into_inner()))
+        let file_buffer = BufReader::with_capacity(MB, file);
+        let gzip_stream = GzipReader::new(file_buffer)?;
+        let reader = BufReader::new(gzip_stream);
+        Ok(WarcReader::new(reader))
     }
 }
 
